@@ -1,4 +1,4 @@
-#include <DHT.h>
+#include <BME280I2C.h>
 
 #include "pm.h"
 #include "data.h"
@@ -6,31 +6,31 @@
 const unsigned long WAIT_TIME = 1000;
 long last_sleep = 0;
 
-DHT dht(DHTPIN, DHTTYPE);
+BME280I2C bme(0x1, 0x1, 0x1, 0x3, 0x5, 0x0, false, 0x77);
 
 struct pm_DI pmDI;
 
+int writeBMEFail(HardwareSerial *serial, unsigned short response_id = 0);
+
 void setup()
 {
-  Serial.begin(9600);
-  pm_initialize(&pmDI, &Serial3);
-  dht.begin();
+  Serial.begin(115200);
+  pm_initialize(&pmDI, &Serial2);
+  if (!bme.begin()) {
+    writeBMEFail(&Serial);
+  }
 }
 
-int getDHTData(struct DHTData *data) {
-  float h = dht.readHumidity();
-  float t = dht.readTemperature();
-  float f = dht.readTemperature(true);
+int getBMEData(struct BMEData *data) {
+  float h, t, p;
 
-  if (isnan(h) || isnan(t) || isnan(f)) {
+  bme.read(p, t, h);
+
+  if (isnan(p) || isnan(t) || isnan(h)) {
     return 0;
   }
-  
-  float hif = dht.computeHeatIndex(f, h);
 
-  float hic = dht.computeHeatIndex(t, h, false);
-
-  data->h = h; data->t = t; data->f = f; data->hif = hif; data->hic = hic;
+  data->h = h; data->t = t; data->p = p;
 
   return 1;
 }
@@ -48,11 +48,11 @@ int getPMData(struct PMData *data) {
   return 1;
 }
 
-void serialEvent3() {
+void serialEvent2() {
   while(!pm_refresh(&pmDI));
 }
 
-struct DHTData dhtData;
+struct BMEData bmeData;
 struct PMData pmData;
 union Data data;
 
@@ -94,24 +94,20 @@ int writePM(HardwareSerial *serial, unsigned short response_id = 0) {
   writeCommand(serial, response_id, DATA_CMD_PM25, &__payload);
 }
 
-int writeDHT(HardwareSerial *serial, unsigned short response_id = 0) {
+int writeBME(HardwareSerial *serial, unsigned short response_id = 0) {
   union Payload __payload;
-  __payload._float = dhtData.t;
-  writeCommand(serial, response_id, DATA_CMD_DHT_TEMPERATURE_C, &__payload);
-  __payload._float = dhtData.f;
-  writeCommand(serial, response_id, DATA_CMD_DHT_TEMPERATURE_F, &__payload);
-  __payload._float = dhtData.h;
-  writeCommand(serial, response_id, DATA_CMD_DHT_HUMIDITY, &__payload);
-  __payload._float = dhtData.hic;
-  writeCommand(serial, response_id, DATA_CMD_DHT_HIC, &__payload);
-  __payload._float = dhtData.hif;
-  writeCommand(serial, response_id, DATA_CMD_DHT_HIF, &__payload);
+  __payload._float = bmeData.t;
+  writeCommand(serial, response_id, DATA_CMD_BME_TEMPERATURE_C, &__payload);
+  __payload._float = bmeData.p;
+  writeCommand(serial, response_id, DATA_CMD_BME_PRESSURE, &__payload);
+  __payload._float = bmeData.h;
+  writeCommand(serial, response_id, DATA_CMD_BME_HUMIDITY, &__payload);
 }
 
-int writeDHTFail(HardwareSerial *serial, unsigned short response_id = 0) {
+int writeBMEFail(HardwareSerial *serial, unsigned short response_id = 0) {
   union Payload __payload;
   __payload._int = 0;
-  writeCommand(serial, response_id, DATA_CMD_FAILED_DHT, &__payload);
+  writeCommand(serial, response_id, DATA_CMD_FAILED_BME, &__payload);
 }
 
 int writePMFail(HardwareSerial *serial, unsigned short response_id = 0) {
@@ -127,10 +123,10 @@ void loop() {
   if (millis() - last_sleep >= WAIT_TIME) {
     last_sleep = millis();
     if ((++__count) >= 3) {
-      if (getDHTData(&dhtData)) {
-        writeDHT(&Serial);
+      if (getBMEData(&bmeData)) {
+        writeBME(&Serial);
       } else {
-        writeDHTFail(&Serial);
+        writeBMEFail(&Serial);
       }
       if (getPMData(&pmData)) {
         writePM(&Serial);

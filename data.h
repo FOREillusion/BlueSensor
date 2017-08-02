@@ -2,14 +2,12 @@
 #define ENVSENSOR_DATA_H
 
 #define DHTTYPE DHT22
-#define DHTPIN 7
+#define DHTPIN 8
 
 #define DATA_CMD_TEMPERATURE 97
-#define DATA_CMD_DHT_TEMPERATURE_C 100
-#define DATA_CMD_DHT_HUMIDITY 101
-#define DATA_CMD_DHT_TEMPERATURE_F 102
-#define DATA_CMD_DHT_HIC 103
-#define DATA_CMD_DHT_HIF 104
+#define DATA_CMD_BME_TEMPERATURE_C 100
+#define DATA_CMD_BME_HUMIDITY 101
+#define DATA_CMD_BME_PRESSURE 105
 
 #define DATA_CMD_PM 65
 #define DATA_CMD_PM01 70
@@ -19,7 +17,7 @@
 #define DATA_CMD_DEBUG 66
 #define DATA_CMD_FAILED 98
 #define DATA_CMD_CLEAR 67
-#define DATA_CMD_FAILED_DHT 110
+#define DATA_CMD_FAILED_BME 110
 #define DATA_CMD_FAILED_PM 111
 
 #define PACK_PAYLOAD_LENGTH 8
@@ -47,9 +45,9 @@ union Data {
   char data[DATA_LENGTH];
 } Data;
 
-struct DHTData {
-  float h, t, f, hif, hic;
-} DHTData;
+struct BMEData {
+  float h, t, p;
+} BMEData;
 
 struct PMData {
   int pm01, pm25, pm10;
