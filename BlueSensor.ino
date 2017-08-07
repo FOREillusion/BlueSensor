@@ -76,9 +76,9 @@ int writeCommand(HardwareSerial *serial, unsigned short response_id, unsigned sh
   memcpy(data.packet.payload.payload, payload->payload, PACK_PAYLOAD_LENGTH);
   unsigned int __verification = 0;
   for (int i = 0; i < DATA_LENGTH - 2; i++) {
-    __verification = ((unsigned int)(__verification + (unsigned char)data.data[i])) % 65536;
+    __verification = ((unsigned int)(__verification + (unsigned char)data.data[i])) % 255;
   }
-  data.packet.verification = (unsigned short)__verification;
+  data.packet.verification = (unsigned short)(__verification) + 1;
   writeMessage(serial, &data);
   ++message_id;
   return 0;
