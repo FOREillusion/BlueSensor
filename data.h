@@ -37,7 +37,8 @@ union Payload {
 struct Packet {
   unsigned short message_id, response_id, command_id;
   union Payload payload;
-  unsigned short verification;
+  unsigned char _verification;
+  unsigned char verification;
 } Packet;
 
 union Data {

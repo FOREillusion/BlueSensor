@@ -63,6 +63,7 @@ int writeMessage(HardwareSerial *serial, union Data* data) {
 
 int writeAvailable(HardwareSerial *serial) {
   memset(data.data, 0, sizeof(data.data));
+  data.data[DATA_LENGTH - 1] = 1;
   writeMessage(serial, &data);
   return 0;
 }
@@ -78,7 +79,7 @@ int writeCommand(HardwareSerial *serial, unsigned short response_id, unsigned sh
   for (int i = 0; i < DATA_LENGTH - 2; i++) {
     __verification = ((unsigned int)(__verification + (unsigned char)data.data[i])) % 255;
   }
-  data.packet.verification = (unsigned short)(__verification) + 1;
+  data.packet.verification = (unsigned char)(__verification) + 1;
   writeMessage(serial, &data);
   ++message_id;
   return 0;
