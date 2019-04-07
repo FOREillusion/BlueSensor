@@ -120,9 +120,9 @@ int writePMFail(HardwareSerial *serial, unsigned short response_id = 0) {
 int __count = 0;
 
 void loop() {
-  
-  if (millis() - last_sleep >= WAIT_TIME) {
-    last_sleep = millis();
+  int _this_time = millis();
+  if (_this_time - last_sleep >= WAIT_TIME) {
+    last_sleep = _this_time;
     if ((++__count) >= 3) {
       if (getBMEData(&bmeData)) {
         writeBME(&Serial);
