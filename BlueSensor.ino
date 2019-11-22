@@ -1,142 +1,101 @@
-#include <BME280I2C.h>
+#include <SoftwareSerial.h>
+#include "BufferProtocol.h"
+#include <DFRobot_BME280.h>
+#include <pb.h>
+#include <pb_common.h>
+#include <pb_encode.h>
+#include <pb_decode.h>
+#include "sense.pb.h"
 
-#include "pm.h"
-#include "data.h"
+#define TEMP 1
+#define HUM 2
+#define PA 3
 
-const unsigned long WAIT_TIME = 1000;
-long last_sleep = 0;
+SerialProtocol sp;
+BufferProtocol bp(&sp);
+SoftwareSerial sSerial(10, 11);
 
-BME280I2C bme(0x1, 0x1, 0x1, 0x3, 0x5, 0x0, false, 0x77);
+DFRobot_BME280 bme;
 
-struct pm_DI pmDI;
-
-int writeBMEFail(HardwareSerial *serial, unsigned short response_id = 0);
-
-void setup()
-{
-  Serial.begin(115200);
-  pm_initialize(&pmDI, &Serial2);
+void setup() {
+  Serial.begin(9600);
+  sSerial.begin(9600);
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
+  while (!Serial);
   if (!bme.begin()) {
-    writeBMEFail(&Serial);
+    Serial.println("sensor not found!");
+    while (1);
+  }
+  digitalWrite(13, LOW);
+}
+
+void write(BufferProtocol* bp, unsigned char* buf, size_t buf_size) {
+  for (int i = 0; i < buf_size; i++) {
+    bp->write(buf[i]);
   }
 }
 
-int getBMEData(struct BMEData *data) {
-  float h, t, p;
-
-  bme.read(p, t, h);
-
-  if (isnan(p) || isnan(t) || isnan(h)) {
-    return 0;
+int write_message(BufferProtocol* bp, int32_t field, size_t which_data, int32_t d_i, float d_f) {
+  uint8_t buffer[256];
+  size_t message_length;
+  SenseUpdate message = SenseUpdate_init_zero;
+  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  message.field = field;
+  message.which_data = which_data;
+  if (which_data == SenseUpdate_data_int32_tag) {
+    message.data.data_int32 = d_i;
+  } else if (which_data == SenseUpdate_data_float_tag) {
+    message.data.data_float = d_f;
   }
-
-  data->h = h; data->t = t; data->p = p;
-
-  return 1;
-}
-
-int getPMData(struct PMData *data) {
-  if (pmDI.pm01 == -1 || pmDI.pm25 == -1 || pmDI.pm10 == -1) {
-    return 0;
+  if (!pb_encode(&stream, SenseUpdate_fields, &message)) {
+    Serial.print("Encoding failed: ");
+    Serial.println(PB_GET_ERROR(&stream));
+    return -1;
   }
-
-  data->pm01 = pmDI.pm01;
-  data->pm25 = pmDI.pm25;
-  data->pm10 = pmDI.pm10;
-  pmDI.pm01 = pmDI.pm25 = pmDI.pm10 = -1;
-  
-  return 1;
+  message_length = stream.bytes_written;
+  bp->begin();
+  bp->write(0x00);
+  write(bp, buffer, message_length);
+  bp->end();
+  return message_length;
 }
 
-void serialEvent2() {
-  while(!pm_refresh(&pmDI));
+void write_log(BufferProtocol* bp, const char* log) {
+  bp->begin();
+  bp->write(0x01);
+  write(bp, log, strlen(log));
+  bp->end();
 }
 
-struct BMEData bmeData;
-struct PMData pmData;
-union Data data;
-
-int writeMessage(HardwareSerial *serial, union Data* data) {
-  serial->write((char*)data, DATA_LENGTH);
-  return 0;
+int write_int32(BufferProtocol* bp, int32_t field, int32_t data) {
+  return write_message(bp, field, SenseUpdate_data_int32_tag, data, 0);
 }
 
-int writeAvailable(HardwareSerial *serial) {
-  memset(data.data, 0, sizeof(data.data));
-  data.data[DATA_LENGTH - 1] = 1;
-  writeMessage(serial, &data);
-  return 0;
+int write_float(BufferProtocol* bp, int32_t field, float data) {
+  return write_message(bp, field, SenseUpdate_data_float_tag, 0, data);
 }
 
-unsigned short message_id = 0;
-
-int writeCommand(HardwareSerial *serial, unsigned short response_id, unsigned short command_id, union Payload *payload) {
-  data.packet.message_id = message_id;
-  data.packet.response_id = response_id;
-  data.packet.command_id = command_id;
-  memcpy(data.packet.payload.payload, payload->payload, PACK_PAYLOAD_LENGTH);
-  unsigned int __verification = 0;
-  for (int i = 0; i < DATA_LENGTH - 2; i++) {
-    __verification = ((unsigned int)(__verification + (unsigned char)data.data[i])) % 255;
-  }
-  data.packet.verification = (unsigned char)(__verification) + 1;
-  writeMessage(serial, &data);
-  ++message_id;
-  return 0;
+void update_bme() {
+  float temp, pa, hum;
+  temp = bme.temperatureValue();
+  pa = bme.pressureValue();
+  hum = bme.humidityValue();
+  write_log(&bp, "Error!");
+  if (!isnan(temp)) write_float(&bp, TEMP, temp);
+  if (!isnan(pa)) write_float(&bp, PA, pa);
+  if (!isnan(hum)) write_float(&bp, HUM, hum);
 }
-
-int writePM(HardwareSerial *serial, unsigned short response_id = 0) {
-  union Payload __payload;
-  __payload._long = pmData.pm01;
-  writeCommand(serial, response_id, DATA_CMD_PM01, &__payload);
-  __payload._long = pmData.pm10;
-  writeCommand(serial, response_id, DATA_CMD_PM10, &__payload);
-  __payload._long = pmData.pm25;
-  writeCommand(serial, response_id, DATA_CMD_PM25, &__payload);
-}
-
-int writeBME(HardwareSerial *serial, unsigned short response_id = 0) {
-  union Payload __payload;
-  __payload._float = bmeData.t;
-  writeCommand(serial, response_id, DATA_CMD_BME_TEMPERATURE_C, &__payload);
-  __payload._float = bmeData.p;
-  writeCommand(serial, response_id, DATA_CMD_BME_PRESSURE, &__payload);
-  __payload._float = bmeData.h;
-  writeCommand(serial, response_id, DATA_CMD_BME_HUMIDITY, &__payload);
-}
-
-int writeBMEFail(HardwareSerial *serial, unsigned short response_id = 0) {
-  union Payload __payload;
-  __payload._int = 0;
-  writeCommand(serial, response_id, DATA_CMD_FAILED_BME, &__payload);
-}
-
-int writePMFail(HardwareSerial *serial, unsigned short response_id = 0) {
-  union Payload __payload;
-  __payload._int = 0;
-  writeCommand(serial, response_id, DATA_CMD_FAILED_PM, &__payload);
-}
-
-int __count = 0;
-
 void loop() {
-  int _this_time = millis();
-  if (_this_time - last_sleep >= WAIT_TIME) {
-    last_sleep = _this_time;
-    if ((++__count) >= 3) {
-      if (getBMEData(&bmeData)) {
-        writeBME(&Serial);
-      } else {
-        writeBMEFail(&Serial);
-      }
-      if (getPMData(&pmData)) {
-        writePM(&Serial);
-      } else {
-        writePMFail(&Serial);
-      }
-      __count = 0;
-    }
-    writeAvailable(&Serial);
+  update_bme();
+  delay(1000);
+  /*
+  bp.begin();
+  bp.end();
+  */
+  /*
+  if (sSerial.available()) {
+    Serial.write(sSerial.read());
   }
+  */
 }
-
