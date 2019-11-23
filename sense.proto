@@ -5,6 +5,5 @@ message SenseUpdate {
     oneof data {
         int32 data_int32 = 2;
         float data_float = 3;
-        string log = 4;
     }
 }

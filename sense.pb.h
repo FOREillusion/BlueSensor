@@ -21,7 +21,6 @@ typedef struct _SenseUpdate {
     union {
         int32_t data_int32;
         float data_float;
-        char log[32];
     } data;
 /* @@protoc_insertion_point(struct:SenseUpdate) */
 } SenseUpdate;
@@ -34,15 +33,13 @@ typedef struct _SenseUpdate {
 /* Field tags (for use in manual encoding/decoding) */
 #define SenseUpdate_data_int32_tag               2
 #define SenseUpdate_data_float_tag               3
-#define SenseUpdate_log_tag                      4
 #define SenseUpdate_field_tag                    1
 
 /* Struct field encoding specification for nanopb */
 #define SenseUpdate_FIELDLIST(X, a) \
 X(a, STATIC, SINGULAR, INT32, field, 1) \
 X(a, STATIC, ONEOF, INT32, (data,data_int32,data.data_int32), 2) \
-X(a, STATIC, ONEOF, FLOAT, (data,data_float,data.data_float), 3) \
-X(a, STATIC, ONEOF, STRING, (data,log,data.log), 4)
+X(a, STATIC, ONEOF, FLOAT, (data,data_float,data.data_float), 3)
 #define SenseUpdate_CALLBACK NULL
 #define SenseUpdate_DEFAULT NULL
 
@@ -52,7 +49,7 @@ extern const pb_msgdesc_t SenseUpdate_msg;
 #define SenseUpdate_fields &SenseUpdate_msg
 
 /* Maximum encoded size of messages (where known) */
-#define SenseUpdate_size                         44
+#define SenseUpdate_size                         22
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -36,6 +36,13 @@ void write(BufferProtocol* bp, unsigned char* buf, size_t buf_size) {
   }
 }
 
+void write_log(BufferProtocol* bp, const char* log) {
+  bp->begin();
+  bp->write(0x01);
+  write(bp, log, strlen(log));
+  bp->end();
+}
+
 int write_message(BufferProtocol* bp, int32_t field, size_t which_data, int32_t d_i, float d_f) {
   uint8_t buffer[256];
   size_t message_length;
@@ -49,8 +56,7 @@ int write_message(BufferProtocol* bp, int32_t field, size_t which_data, int32_t 
     message.data.data_float = d_f;
   }
   if (!pb_encode(&stream, SenseUpdate_fields, &message)) {
-    Serial.print("Encoding failed: ");
-    Serial.println(PB_GET_ERROR(&stream));
+    write_log(bp, PB_GET_ERROR(&stream));
     return -1;
   }
   message_length = stream.bytes_written;
@@ -59,13 +65,6 @@ int write_message(BufferProtocol* bp, int32_t field, size_t which_data, int32_t 
   write(bp, buffer, message_length);
   bp->end();
   return message_length;
-}
-
-void write_log(BufferProtocol* bp, const char* log) {
-  bp->begin();
-  bp->write(0x01);
-  write(bp, log, strlen(log));
-  bp->end();
 }
 
 int write_int32(BufferProtocol* bp, int32_t field, int32_t data) {

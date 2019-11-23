@@ -2,7 +2,7 @@
 
 Running on Arduino, this program can send sensor data to Raspberry Pi.
 
-For the next generation of BlueSense. For legacy version, refer to legacy branch.
+Built for BlueSense-NG. For previous versions, refer to legacy branch.
 
 ## Dependencies
 
@@ -21,5 +21,8 @@ You need to install the following dependencies yourself.
 
 All packets are encapsuled in serialpb buffer protocol. For each packet,
 
+The first byte indicates channel.
+
 * nanopb packet begins with `0x00`, then follows raw nanopb (protobuf) data.
+* PM2.5 sensor data begins with `0x01`, then follows raw serial data.
 * log message begins with `0x01`, then follows the byte string.
