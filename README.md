@@ -25,4 +25,4 @@ The first byte indicates channel.
 
 * nanopb packet begins with `0x00`, then follows raw nanopb (protobuf) data.
 * PM2.5 sensor data begins with `0x01`, then follows raw serial data.
-* log message begins with `0x01`, then follows the byte string.
+* log message begins with `0x02`, then follows the byte string.

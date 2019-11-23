@@ -1,4 +1,4 @@
-#include <SoftwareSerial.h>
+#include <AltSoftSerial.h>
 #include "BufferProtocol.h"
 #include <DFRobot_BME280.h>
 #include <pb.h>
@@ -11,12 +11,17 @@
 #define HUM 2
 #define PA 3
 
+#define CHANNEL_PROTOBUF 0
+#define CHANNEL_SERIAL 1
+#define CHANNEL_LOG 2
+
 SerialProtocol sp;
 BufferProtocol bp(&sp);
-SoftwareSerial sSerial(10, 11);
+AltSoftSerial sSerial;
 
 DFRobot_BME280 bme;
 
+unsigned long lst_report_time;
 void setup() {
   Serial.begin(9600);
   sSerial.begin(9600);
@@ -28,6 +33,7 @@ void setup() {
     while (1);
   }
   digitalWrite(13, LOW);
+  lst_report_time = 0;
 }
 
 void write(BufferProtocol* bp, unsigned char* buf, size_t buf_size) {
@@ -36,9 +42,13 @@ void write(BufferProtocol* bp, unsigned char* buf, size_t buf_size) {
   }
 }
 
+void begin_channel(BufferProtocol* bp, unsigned char channel_id) {
+  bp->write(channel_id);
+}
+
 void write_log(BufferProtocol* bp, const char* log) {
   bp->begin();
-  bp->write(0x01);
+  begin_channel(bp, CHANNEL_LOG);
   write(bp, log, strlen(log));
   bp->end();
 }
@@ -61,7 +71,7 @@ int write_message(BufferProtocol* bp, int32_t field, size_t which_data, int32_t 
   }
   message_length = stream.bytes_written;
   bp->begin();
-  bp->write(0x00);
+  begin_channel(bp, CHANNEL_PROTOBUF);
   write(bp, buffer, message_length);
   bp->end();
   return message_length;
@@ -80,21 +90,24 @@ void update_bme() {
   temp = bme.temperatureValue();
   pa = bme.pressureValue();
   hum = bme.humidityValue();
-  write_log(&bp, "Error!");
+  write_log(&bp, "test");
   if (!isnan(temp)) write_float(&bp, TEMP, temp);
   if (!isnan(pa)) write_float(&bp, PA, pa);
   if (!isnan(hum)) write_float(&bp, HUM, hum);
 }
+
 void loop() {
-  update_bme();
-  delay(1000);
-  /*
-  bp.begin();
-  bp.end();
-  */
-  /*
-  if (sSerial.available()) {
-    Serial.write(sSerial.read());
+  unsigned long current_time = millis();
+  if (current_time - lst_report_time >= 1000) {
+    update_bme();
+    lst_report_time = current_time;
   }
-  */
+  if (sSerial.available()) {
+    bp.begin();
+    begin_channel(&bp, CHANNEL_SERIAL);
+    while (sSerial.available()) {
+      bp.write(sSerial.read());
+    }
+    bp.end();
+  }
 }
