@@ -53,18 +53,13 @@ void write_log(BufferProtocol* bp, const char* log) {
   bp->end();
 }
 
-int write_message(BufferProtocol* bp, int32_t field, size_t which_data, int32_t d_i, float d_f) {
-  uint8_t buffer[256];
+int write_data(BufferProtocol* bp, int32_t field, float data) {
+  uint8_t buffer[SenseUpdate_size];
   size_t message_length;
-  SenseUpdate message = SenseUpdate_init_zero;
-  pb_ostream_t stream = pb_ostream_from_buffer(buffer, sizeof(buffer));
+  SenseUpdate message = SenseUpdate_init_default;
+  pb_ostream_t stream = pb_ostream_from_buffer(buffer, SenseUpdate_size);
   message.field = field;
-  message.which_data = which_data;
-  if (which_data == SenseUpdate_data_int32_tag) {
-    message.data.data_int32 = d_i;
-  } else if (which_data == SenseUpdate_data_float_tag) {
-    message.data.data_float = d_f;
-  }
+  message.data = data;
   if (!pb_encode(&stream, SenseUpdate_fields, &message)) {
     write_log(bp, PB_GET_ERROR(&stream));
     return -1;
@@ -77,23 +72,14 @@ int write_message(BufferProtocol* bp, int32_t field, size_t which_data, int32_t 
   return message_length;
 }
 
-int write_int32(BufferProtocol* bp, int32_t field, int32_t data) {
-  return write_message(bp, field, SenseUpdate_data_int32_tag, data, 0);
-}
-
-int write_float(BufferProtocol* bp, int32_t field, float data) {
-  return write_message(bp, field, SenseUpdate_data_float_tag, 0, data);
-}
-
 void update_bme() {
   float temp, pa, hum;
   temp = bme.temperatureValue();
   pa = bme.pressureValue();
   hum = bme.humidityValue();
-  write_log(&bp, "test");
-  if (!isnan(temp)) write_float(&bp, TEMP, temp);
-  if (!isnan(pa)) write_float(&bp, PA, pa);
-  if (!isnan(hum)) write_float(&bp, HUM, hum);
+  if (!isnan(temp)) write_data(&bp, TEMP, temp);
+  if (!isnan(pa)) write_data(&bp, PA, pa);
+  if (!isnan(hum)) write_data(&bp, HUM, hum);
 }
 
 void loop() {

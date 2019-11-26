@@ -2,8 +2,5 @@ syntax = "proto3";
 
 message SenseUpdate {
     int32 field = 1;
-    oneof data {
-        int32 data_int32 = 2;
-        float data_float = 3;
-    }
+    float data = 2;
 }

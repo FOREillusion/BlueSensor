@@ -11,7 +11,7 @@ These libraries are embedded in this project.
 * serialpb (BufferProtocol.[h|cpp])
 * protobuf generated files (sense.pb.[c|h])
 
-You need to install the following dependencies yourself.
+You'll need to install the following dependencies yourself.
 
 * nanopb (use vcpkg or other tools to install protoc plugin, and also install it in Arduino libraries folder)
 * DFRobot_BME280 (install it in Arduino libraries folder)
