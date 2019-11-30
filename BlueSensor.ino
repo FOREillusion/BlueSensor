@@ -1,10 +1,11 @@
 #include <AltSoftSerial.h>
-#include "BufferProtocol.h"
-#include <DFRobot_BME280.h>
+#include <BME280I2C.h>
 #include <pb.h>
 #include <pb_common.h>
 #include <pb_encode.h>
 #include <pb_decode.h>
+#include <Wire.h>
+#include "BufferProtocol.h"
 #include "sense.pb.h"
 
 #define TEMP 1
@@ -17,19 +18,32 @@
 
 SerialProtocol sp;
 BufferProtocol bp(&sp);
-AltSoftSerial sSerial;
 
-DFRobot_BME280 bme;
+BME280I2C::Settings bme_setting(
+  BME280::OSR_X1, 
+  BME280::OSR_X1, 
+  BME280::OSR_X1, 
+  BME280::Mode_Normal, 
+  BME280::StandbyTime_1000ms,
+  BME280::Filter_16,
+  BME280::SpiEnable_False,
+  0x77);
+BME280I2C bme(bme_setting);
+
+void write_log(BufferProtocol* bp, const char* log);
 
 unsigned long lst_report_time;
+
 void setup() {
   Serial.begin(9600);
-  sSerial.begin(9600);
+  Serial2.begin(9600);
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
   while (!Serial);
+  write_log(&bp, "[info] serial connected");
+  Wire.begin();
   if (!bme.begin()) {
-    Serial.println("sensor not found!");
+    write_log(&bp, "[error] bme280 sensor not found!");
     while (1);
   }
   digitalWrite(13, LOW);
@@ -74,9 +88,7 @@ int write_data(BufferProtocol* bp, int32_t field, float data) {
 
 void update_bme() {
   float temp, pa, hum;
-  temp = bme.temperatureValue();
-  pa = bme.pressureValue();
-  hum = bme.humidityValue();
+  bme.read(pa, temp, hum);
   if (!isnan(temp)) write_data(&bp, TEMP, temp);
   if (!isnan(pa)) write_data(&bp, PA, pa);
   if (!isnan(hum)) write_data(&bp, HUM, hum);
@@ -88,11 +100,11 @@ void loop() {
     update_bme();
     lst_report_time = current_time;
   }
-  if (sSerial.available()) {
+  if (Serial2.available()) {
     bp.begin();
     begin_channel(&bp, CHANNEL_SERIAL);
-    while (sSerial.available()) {
-      bp.write(sSerial.read());
+    while (Serial2.available()) {
+      bp.write(Serial2.read());
     }
     bp.end();
   }

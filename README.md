@@ -14,7 +14,7 @@ These libraries are embedded in this project.
 You'll need to install the following dependencies yourself.
 
 * nanopb (use vcpkg or other tools to install protoc plugin, and also install it in Arduino libraries folder)
-* DFRobot_BME280 (install it in Arduino libraries folder)
+* BME280 https://github.com/finitespace/BME280
 * Python 2.7 and protobuf (required by nanopb generator plugin)
 
 ## Data Transmission
